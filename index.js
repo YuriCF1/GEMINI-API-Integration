@@ -6,24 +6,80 @@ import { fazerPergunta } from "./pergunta.js";
 // dotenv.config({ path: "./.env" });
 dotenv.config();
 
-// Access your API key as an environment variable (see "Set up your API key" above)
-const genAI = new GoogleGenerativeAI(process.env.API_KEY);
+/*
+ * Install the Generative AI SDK
+ *
+ * $ npm install @google/generative-ai
+ *
+ * See the getting started guide for more information
+ * https://ai.google.dev/gemini-api/docs/get-started/node
+ */
+
+// const {
+//   GoogleGenerativeAI,
+//   HarmCategory,
+//   HarmBlockThreshold,
+// } = require("@google/generative-ai");
+
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
+
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-pro",
+  systemInstruction:
+    "Você é o chatbot de um site que vende pacotes de viagem. Ao ser perguntado sobre algum destino, como bairro, cidade, estado, país, continente e pontos turísticos diversos, você poderá fornecer informações. Caso seja perguntado sobre algo que não ter relação com viagem e turismo, informe que não poder responder a essa dúvida.\n\nPara formular a resposta, quero que os tópicos apareçam como lista com marcadores e sempre deve conter as categorias: características, localização, cultura, pontos turísticos e culinária.",
+});
+
+const generationConfig = {
+  temperature: 1,
+  topP: 0.95,
+  topK: 64,
+  maxOutputTokens: 8192,
+  responseMimeType: "text/plain",
+};
 
 async function run() {
-  // The Gemini 1.5 models are versatile and work with both text-only and multimodal prompts
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const chatSession = model.startChat({
+    generationConfig,
+    // safetySettings: Adjust safety settings
+    // See https://ai.google.dev/gemini-api/docs/safety-settings
+    history: [
+      {
+        role: "user",
+        parts: [
+          { text: "Me fale sobre o bairro do Flamengo, no Rio de Janeiro" },
+        ],
+      },
+      {
+        role: "model",
+        parts: [
+          {
+            text: "##  Flamengo - Rio de Janeiro:\n\n• **Características:** Bairro nobre e tradicional, conhecido por seus edifícios históricos, áreas verdes exuberantes e uma atmosfera tranquila. É um dos bairros mais seguros do Rio, com ruas arborizadas e clima agradável. Ideal para famílias e pessoas que buscam tranquilidade sem abrir mão da vida urbana.\n\n• **Localização:**  Zona Sul do Rio de Janeiro, vizinho a outros bairros famosos como Botafogo, Laranjeiras e Glória. Possui fácil acesso a transporte público, com estações de metrô e linhas de ônibus. \n\n• **Cultura:** O Flamengo é rico em história e cultura, com diversos museus, teatros e centros culturais. Abriga o Museu da República, o Museu Carmen Miranda e o MAM - Museu de Arte Moderna do Rio de Janeiro.  \n\n• **Pontos turísticos:** \n     - Praia do Flamengo:  A mais extensa orla carioca, com vista para o Pão de Açúcar e a Baía de Guanabara, ideal para caminhadas, ciclismo e atividades ao ar livre.\n     - Parque do Flamengo: Um dos maiores parques urbanos do mundo, com áreas verdes, jardins, quadras esportivas e ciclovias.\n     - Aterro do Flamengo:  Oferece uma vista espetacular da Baía de Guanabara e do Cristo Redentor, um local perfeito para apreciar o pôr do sol.\n\n• **Culinária:** O Flamengo oferece uma grande variedade de restaurantes, bares e cafés. Desde restaurantes sofisticados a opções mais informais, o bairro agrada a todos os gostos. Destaque para os restaurantes de frutos do mar, que aproveitam a proximidade com a Baía de Guanabara. \n",
+          },
+        ],
+      },
+    ],
+  });
+  let prompt = await fazerPergunta(
+    "Me fale sobre o destino que deseja conhecer: "
+  );
 
-  let prompt =
-    "Você é um site de viagens, e deve responder somente sobre esse assunto. ";
-  ("Caso o usuário pergunte sobre algo diferente, diga que não pode responder. ");
-  ("O usuário escolheu: ");
-
-  prompt += await fazerPergunta("Me fale sobre o destino que deseja conhecer: ");
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-  console.log(text);
+  const result = await chatSession.sendMessage(prompt);
+  console.log(result.response.text());
 }
 
 run();
+
+/*
+NOTAS 
+
+Clareza e objetividade: Seja claro e específico sobre o que você deseja que o Gemini faça. Evite ambiguidades e instruções vagas. Quanto mais preciso for o seu prompt, melhor será a resposta do modelo;
+
+Contexto relevante: Forneça contexto suficiente para que o Gemini entenda a situação e o que você espera. Isso pode incluir informações sobre o estilo de escrita desejado, o público-alvo, o tom da mensagem, etc.;
+
+Exemplos: Incluir exemplos do tipo de texto que você deseja pode ajudar o Gemini a entender melhor suas expectativas;
+
+Experimentação: Teste e experimente diferentes prompts e estilos de escrita para encontrar o que funciona melhor para você;
+
+Restrições: Se necessário, defina limites para o comprimento do texto, formato, estilo ou conteúdo.
+*/
